@@ -37,9 +37,9 @@ class Agent():
     self.online_net.reset_noise()
 
   # Acts based on single state (no batch)
-  def act(self, state):
+  def act(self, state, y):
     with torch.no_grad():
-      return (self.online_net(state.unsqueeze(0)) * self.support).sum(2).argmax(1).item()
+      return (self.online_net(state.unsqueeze(0), y) * self.support).sum(2).argmax(1).item()
 
   # Acts with an ε-greedy policy (used for evaluation only)
   def act_e_greedy(self, state, epsilon=0.001):  # High ε can reduce evaluation scores drastically
