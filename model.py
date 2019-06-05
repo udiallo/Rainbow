@@ -53,17 +53,17 @@ class DQN(nn.Module):
     self.conv1 = nn.Conv2d(args.history_length, 32, 8, stride=4, padding=1)
     self.conv2 = nn.Conv2d(32, 64, 4, stride=2)
     self.conv3 = nn.Conv2d(64, 64, 3)
-    self.fc_h_v = NoisyLinear(3146, args.hidden_size, std_init=args.noisy_std)
-    self.fc_h_a = NoisyLinear(3146, args.hidden_size, std_init=args.noisy_std)
+    self.fc_h_v = NoisyLinear(3224, args.hidden_size, std_init=args.noisy_std)
+    self.fc_h_a = NoisyLinear(3224, args.hidden_size, std_init=args.noisy_std)
     self.fc_z_v = NoisyLinear(args.hidden_size, self.atoms, std_init=args.noisy_std)
     self.fc_z_a = NoisyLinear(args.hidden_size, action_space * self.atoms, std_init=args.noisy_std)
 
-  def forward(self, x, y, log=False): # y,
+  def forward(self, x, y, log=False): # y, acts
     x = F.relu(self.conv1(x))
     x = F.relu(self.conv2(x))
     x = F.relu(self.conv3(x))
     x = x.view(-1, 3136)
-    x = torch.cat((x, y), 1)
+    x = torch.cat((x, y), 1) # concatenate x with object detection and past action values
     v = self.fc_z_v(F.relu(self.fc_h_v(x)))  # Value stream
     a = self.fc_z_a(F.relu(self.fc_h_a(x)))  # Advantage stream
     v, a = v.view(-1, 1, self.atoms), a.view(-1, self.action_space, self.atoms)

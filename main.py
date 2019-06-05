@@ -75,6 +75,9 @@ mem = ReplayMemory(args, args.memory_capacity)
 priority_weight_increase = (1 - args.priority_weight) / (args.T_max - args.learn_start)
 
 
+# Construct placeholder for input values of object detection and past actions
+y = torch.Tensor(1, 88)  # placeholder
+
 # Construct validation memory
 val_mem = ReplayMemory(args, args.evaluation_size)
 T, done = 0, True
@@ -83,10 +86,12 @@ while T < args.evaluation_size:
     state, done = env.reset(), False
 
   next_state, _, done = env.step(np.random.randint(0, action_space))
-  val_mem.append(state, None, None, done)
+  val_mem.append(state, None, y, None, done)
   state = next_state
   T += 1
-y = torch.Tensor(1, 10)  # placeholder
+
+
+
 if args.evaluate:
   dqn.eval()  # Set DQN (online network) to evaluation mode
   avg_reward, avg_Q = test(args, 0, dqn, val_mem, evaluate=True)  # Test
@@ -106,7 +111,7 @@ else:
     next_state, reward, done = env.step(action)  # Step
     if args.reward_clip > 0:
       reward = max(min(reward, args.reward_clip), -args.reward_clip)  # Clip rewards
-    mem.append(state, action, reward, done)  # Append transition to memory
+    mem.append(state, action, y, reward, done)  # Append transition to memory
 
     # Train and test
     if T >= args.learn_start:
