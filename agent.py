@@ -55,11 +55,11 @@ class Agent():
 
     with torch.no_grad():
       # Calculate nth next state probabilities
-      pns = self.online_net(next_states)  # Probabilities p(s_t+n, ·; θonline)
+      pns = self.online_net(next_states, y)  # Probabilities p(s_t+n, ·; θonline)
       dns = self.support.expand_as(pns) * pns  # Distribution d_t+n = (z, p(s_t+n, ·; θonline))
       argmax_indices_ns = dns.sum(2).argmax(1)  # Perform argmax action selection using online network: argmax_a[(z, p(s_t+n, a; θonline))]
       self.target_net.reset_noise()  # Sample new target net noise
-      pns = self.target_net(next_states)  # Probabilities p(s_t+n, ·; θtarget)
+      pns = self.target_net(next_states, y)  # Probabilities p(s_t+n, ·; θtarget)
       pns_a = pns[range(self.batch_size), argmax_indices_ns]  # Double-Q probabilities p(s_t+n, argmax_a[(z, p(s_t+n, a; θonline))]; θtarget)
 
       # Compute Tz (Bellman operator T applied to z)
