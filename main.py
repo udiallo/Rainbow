@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 import argparse
 from datetime import datetime
 import numpy as np

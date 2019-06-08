@@ -58,11 +58,13 @@ class DQN(nn.Module):
     self.fc_z_v = NoisyLinear(args.hidden_size, self.atoms, std_init=args.noisy_std)
     self.fc_z_a = NoisyLinear(args.hidden_size, action_space * self.atoms, std_init=args.noisy_std)
 
-  def forward(self, x, y, log=False): # y, acts
+  def forward(self, x, y, log=False): # y
     x = F.relu(self.conv1(x))
     x = F.relu(self.conv2(x))
     x = F.relu(self.conv3(x))
     x = x.view(-1, 3136)
+    print(y)
+    print(x)
     x = torch.cat((x, y), 1) # concatenate x with object detection and past action values
     v = self.fc_z_v(F.relu(self.fc_h_v(x)))  # Value stream
     a = self.fc_z_a(F.relu(self.fc_h_a(x)))  # Advantage stream

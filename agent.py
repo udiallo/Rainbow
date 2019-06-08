@@ -47,10 +47,10 @@ class Agent():
 
   def learn(self, mem):
     # Sample transitions
-    idxs, states, actions, returns, next_states, nonterminals, weights = mem.sample(self.batch_size)
+    idxs, states, actions, y, returns, next_states, nonterminals, weights = mem.sample(self.batch_size)
 
     # Calculate current state probabilities (online network noise already sampled)
-    log_ps = self.online_net(states, log=True)  # Log probabilities log p(s_t, ·; θonline)
+    log_ps = self.online_net(states, y, log=True)  # Log probabilities log p(s_t, ·; θonline)
     log_ps_a = log_ps[range(self.batch_size), actions]  # log p(s_t, a_t; θonline)
 
     with torch.no_grad():
