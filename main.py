@@ -11,6 +11,9 @@ from memory import ReplayMemory
 from test import test
 from tqdm import tqdm
 
+import monodepth.monodepth_inference as depth_estimation
+from obstacle_tower_od import ObjectDetection
+import prepare_input
 
 parser = argparse.ArgumentParser(description='Rainbow')
 parser.add_argument('--seed', type=int, default=123, help='Random seed')
@@ -78,7 +81,11 @@ priority_weight_increase = (1 - args.priority_weight) / (args.T_max - args.learn
 
 
 # Construct placeholder for input values of object detection and past actions
-y = torch.Tensor(1, 88)  # placeholder
+y = torch.Tensor(1, 16)  # placeholder
+
+# Object detection and monodepth
+OD = ObjectDetection()
+depth_model = depth_estimation.Monodepth_inference('monodepth/model/monodepth-30000')
 
 # Construct validation memory
 val_mem = ReplayMemory(args, args.evaluation_size)
@@ -87,9 +94,22 @@ while T < args.evaluation_size:
   if done:
     state, done = env.reset(), False
 
-  next_state, _, done = env.step(np.random.randint(0, action_space))
   val_mem.append(state, None, y, None, done)
-  state = next_state
+
+
+  # rgb is still no in the correct format
+  next_state, rgb,  _, done = env.step(np.random.randint(0, action_space))
+
+  objects, depthmap = prepare_input.prepare_input(rgb, depth_model, OD)
+
+
+
+
+  state = torch.tensor(depthmap, dtype=torch.float32).div_(255)
+
+  y = torch.Tensor(objects)
+
+  #state = next_state
   T += 1
 
 
@@ -102,6 +122,7 @@ else:
   # Training loop
   dqn.train()
   T, done = 0, True
+  y = torch.Tensor(1, 16)
   for T in tqdm(range(args.T_max)):
     if done:
       state, done = env.reset(), False
@@ -110,10 +131,16 @@ else:
       dqn.reset_noise()  # Draw a new set of noisy weights
 
     action = dqn.act(state, y)  # Choose an action greedily (with noisy weights)
-    next_state, reward, done = env.step(action)  # Step
+    next_state, rgb, reward, done = env.step(action)  # Step
     if args.reward_clip > 0:
       reward = max(min(reward, args.reward_clip), -args.reward_clip)  # Clip rewards
     mem.append(state, action, y, reward, done)  # Append transition to memory
+
+    objects, depthmap = prepare_input.prepare_input(rgb, depth_model, OD)
+
+    state = torch.tensor(depthmap, dtype=torch.float32).div_(255)
+
+    y = torch.Tensor(objects)
 
     # Train and test
     if T >= args.learn_start:

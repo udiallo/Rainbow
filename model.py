@@ -66,10 +66,9 @@ class DQN(nn.Module):
 
 
 
-    try:
-      x = torch.cat((x, y), 1) # concatenate x with object detection and past action values
-    except:
-      print("except")
+
+    x = torch.cat((x, y), 1) # concatenate x with object detection and past action values
+
     v = self.fc_z_v(F.relu(self.fc_h_v(x)))  # Value stream
     a = self.fc_z_a(F.relu(self.fc_h_a(x)))  # Advantage stream
     v, a = v.view(-1, 1, self.atoms), a.view(-1, self.action_space, self.atoms)

@@ -21,15 +21,21 @@ class Env():
     self.life_termination = False  # Used to check if resetting only from loss of life
     self.window = args.history_length  # Number of frames to concatenate
     self.state_buffer = deque([], maxlen=args.history_length)
+    self.state_buffer_rgb = deque([], maxlen=args.history_length)
     self.training = True  # Consistent with model training mode
 
   def _get_state(self):
     state = cv2.resize(self.ale.getScreenGrayscale(), (84, 84), interpolation=cv2.INTER_LINEAR)
     return torch.tensor(state, dtype=torch.float32, device=self.device).div_(255)
 
+  def _get_state_rgb(self):
+    state = cv2.resize(self.ale.getScreenGrayscale(), (84, 84), interpolation=cv2.INTER_LINEAR)
+    return state
+
   def _reset_buffer(self):
     for _ in range(self.window):
       self.state_buffer.append(torch.zeros(84, 84, device=self.device))
+      self.state_buffer_rgb.append(torch.zeros(84, 84, device=self.device))
 
   def reset(self):
     if self.life_termination:
@@ -46,25 +52,32 @@ class Env():
           self.ale.reset_game()
     # Process and return "initial" state
     observation = self._get_state()
+    observation_rgb = self._get_state_rgb()
     self.state_buffer.append(observation)
+    self.state_buffer_rgb.append(observation_rgb)
     self.lives = self.ale.lives()
     return torch.stack(list(self.state_buffer), 0)
 
   def step(self, action):
     # Repeat action 4 times, max pool over last 2 frames
     frame_buffer = torch.zeros(2, 84, 84, device=self.device)
+    frame_buffer_rgb = torch.zeros(2, 84, 84, device=self.device)
     reward, done = 0, False
     for t in range(4):
       reward += self.ale.act(self.actions.get(action))
       if t == 2:
         frame_buffer[0] = self._get_state()
+        frame_buffer_rgb[0] = self._get_state()
       elif t == 3:
         frame_buffer[1] = self._get_state()
+        frame_buffer_rgb[1] = self._get_state()
       done = self.ale.game_over()
       if done:
         break
     observation = frame_buffer.max(0)[0]
+    observation_rgb = frame_buffer_rgb.max(0)[0]
     self.state_buffer.append(observation)
+    self.state_buffer_rgb.append(observation_rgb)
     # Detect loss of life as terminal in training mode
     if self.training:
       lives = self.ale.lives()
@@ -73,7 +86,8 @@ class Env():
         done = True
       self.lives = lives
     # Return state, reward, done
-    return torch.stack(list(self.state_buffer), 0), reward, done
+
+    return torch.stack(list(self.state_buffer), 0), list(self.state_buffer_rgb), reward, done
 
   # Uses loss of life as terminal signal
   def train(self):
