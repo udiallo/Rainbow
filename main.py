@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 
+from obstacle_tower_env import ObstacleTowerEnv
 import argparse
 from datetime import datetime
 import numpy as np
@@ -16,6 +17,8 @@ from obstacle_tower_od import ObjectDetection
 import prepare_input
 
 parser = argparse.ArgumentParser(description='Rainbow')
+parser.add_argument('environment_filename', default='../ObstacleTower21/obstacletower', nargs='?')
+parser.add_argument('--docker_training', action='store_true')
 parser.add_argument('--seed', type=int, default=123, help='Random seed')
 parser.add_argument('--disable-cuda', action='store_true', help='Disable CUDA')
 parser.add_argument('--game', type=str, default='space_invaders', help='ATARI game')
@@ -69,10 +72,11 @@ def log(s):
 
 
 # Environment
-env = Env(args)
-env.train()
-action_space = env.action_space()
-
+env = ObstacleTowerEnv(args.environment_filename, docker_training=args.docker_training, retro=False, timeout_wait=700)
+# env = Env(args)
+# env.train()
+# action_space = env.action_space()
+action_space = []  # add function action_space() to ObstacleTowerEnv
 
 # Agent
 dqn = Agent(args, env)
