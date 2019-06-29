@@ -17,7 +17,7 @@ from obstacle_tower_od import ObjectDetection
 import prepare_input
 
 parser = argparse.ArgumentParser(description='Rainbow')
-parser.add_argument('environment_filename', default='../ObstacleTower21/obstacletower', nargs='?')
+parser.add_argument('environment_filename', default='../obstacle-tower-challenge/ObstacleTower/obstacletower.x86_64', nargs='?')
 parser.add_argument('--docker_training', action='store_true')
 parser.add_argument('--seed', type=int, default=123, help='Random seed')
 parser.add_argument('--disable-cuda', action='store_true', help='Disable CUDA')
@@ -73,10 +73,10 @@ def log(s):
 
 # Environment
 env = ObstacleTowerEnv(args.environment_filename, docker_training=args.docker_training, retro=False, timeout_wait=700)
-# env = Env(args)
-# env.train()
-# action_space = env.action_space()
-action_space = []  # add function action_space() to ObstacleTowerEnv
+#env = Env(args)
+env.train()
+action_space = env.action_space()
+#action_space = []  # add function action_space() to ObstacleTowerEnv
 
 # Agent
 dqn = Agent(args, env)
@@ -101,10 +101,9 @@ while T < args.evaluation_size:
   val_mem.append(state, None, y, None, done)
 
 
-  # rgb is still no in the correct format
-  next_state, rgb,  _, done = env.step(np.random.randint(0, action_space))
+  next_state, rgb,  _, done = env.step(np.random.randint(0, 4, size=4))
 
-  objects, depthmap = prepare_input.prepare_input(rgb, depth_model, OD)
+  objects, depthmap = prepare_input.prepare_input(next_state[0], depth_model, OD)
 
 
 

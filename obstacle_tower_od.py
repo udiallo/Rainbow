@@ -86,6 +86,7 @@ class ObjectDetection:
                 use_normalized_coordinates=True,
                 line_thickness=1,
                 min_score_thresh=0.50)
+            image_boxes = image_boxes / 255
             plt.imsave(dir + str(im_id-1).zfill(5) + '_od.jpg', image_boxes, cmap='plasma')
         return doors
 
