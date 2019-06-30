@@ -364,6 +364,14 @@ class ObstacleTowerEnv(gym.Env):
     def action_space(self):
         return self._action_space
 
+    def get_dic_of_actions(self):
+        possible_vals = [range(_num) for _num in self._action_shape]
+        all_actions = [list(_action) for _action in itertools.product(*possible_vals)]
+        # Dict should be faster than List for large action spaces
+        action_lookup = {_scalar: _action for (_scalar, _action) in enumerate(all_actions)}
+        return action_lookup
+
+
     def train(self):
         self.training = True
 

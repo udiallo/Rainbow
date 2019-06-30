@@ -53,8 +53,8 @@ class DQN(nn.Module):
     self.conv1 = nn.Conv2d(args.history_length, 32, 8, stride=4, padding=1)
     self.conv2 = nn.Conv2d(32, 64, 4, stride=2)
     self.conv3 = nn.Conv2d(64, 64, 3)
-    self.fc_h_v = NoisyLinear(3224, args.hidden_size, std_init=args.noisy_std)
-    self.fc_h_a = NoisyLinear(3224, args.hidden_size, std_init=args.noisy_std)
+    self.fc_h_v = NoisyLinear(3152, args.hidden_size, std_init=args.noisy_std)
+    self.fc_h_a = NoisyLinear(3152, args.hidden_size, std_init=args.noisy_std)
     self.fc_z_v = NoisyLinear(args.hidden_size, self.atoms, std_init=args.noisy_std)
     self.fc_z_a = NoisyLinear(args.hidden_size, action_space * self.atoms, std_init=args.noisy_std)
 
@@ -67,7 +67,7 @@ class DQN(nn.Module):
 
 
 
-    x = torch.cat((x, y), 1) # concatenate x with object detection and past action values
+    x = torch.cat((x, y), 1) # concatenate x with object detection
 
     v = self.fc_z_v(F.relu(self.fc_h_v(x)))  # Value stream
     a = self.fc_z_a(F.relu(self.fc_h_a(x)))  # Advantage stream

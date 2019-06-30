@@ -15,6 +15,8 @@ from tqdm import tqdm
 import monodepth.monodepth_inference as depth_estimation
 from obstacle_tower_od import ObjectDetection
 import prepare_input
+import cv2
+from PIL import Image
 
 parser = argparse.ArgumentParser(description='Rainbow')
 parser.add_argument('environment_filename', default='../obstacle-tower-challenge/ObstacleTower/obstacletower.x86_64', nargs='?')
@@ -76,6 +78,21 @@ env = ObstacleTowerEnv(args.environment_filename, docker_training=args.docker_tr
 #env = Env(args)
 env.train()
 action_space = env.action_space()
+
+action_dict =	{
+  #1 : [0, 0, 0, 0], #nothing
+  0 : [1, 0, 0, 0], # forward
+  1 : [0, 0, 0, 1], # right
+  2 : [0, 0, 0, 2], # left
+  3 : [1, 0, 1, 0], # forward jump
+  4 : [0, 0, 1, 1], # right jump
+  5 : [0, 0, 1, 2], # left jump
+  6 : [0, 1, 0, 0], # camera cc
+  7 : [0, 2, 0, 0], # camera c
+}
+
+
+
 #action_space = []  # add function action_space() to ObstacleTowerEnv
 
 # Agent
@@ -93,24 +110,33 @@ depth_model = depth_estimation.Monodepth_inference('monodepth/model/monodepth-30
 
 # Construct validation memory
 val_mem = ReplayMemory(args, args.evaluation_size)
-T, done = 0, True
+T, done = 500, True
 while T < args.evaluation_size:
   if done:
     state, done = env.reset(), False
 
   val_mem.append(state, None, y, None, done)
 
+  states_list = []
+  objects_list = []
 
-  next_state, rgb,  _, done = env.step(np.random.randint(0, 4, size=4))
+  for c in range(4):
+    random_action = np.random.randint(0, 8)
+    next_state, rgb, _, done = env.step(action_dict[random_action])
+    objects, depthmap = prepare_input.prepare_input(next_state[0], depth_model, OD)
+    state = cv2.resize(depthmap, dsize=(84, 84), interpolation=cv2.INTER_CUBIC)
 
-  objects, depthmap = prepare_input.prepare_input(next_state[0], depth_model, OD)
+    states_list.append(state)
+    objects_list.append(objects)
 
+  states_list = np.asarray(states_list)
+  objects_list = np.asarray(objects_list)
+  objects_list = np.concatenate([objects_list[0], objects_list[1], objects_list[2], objects_list[3]], axis=None)
 
+  state = torch.tensor(states_list, dtype=torch.float32).div_(255)
 
-
-  state = torch.tensor(depthmap, dtype=torch.float32).div_(255)
-
-  y = torch.Tensor(objects)
+  y = torch.Tensor(objects_list)
+  y = y.unsqueeze(0)
 
   #state = next_state
   T += 1
@@ -123,6 +149,10 @@ if args.evaluate:
   print('Avg. reward: ' + str(avg_reward) + ' | Avg. Q: ' + str(avg_Q))
 else:
   # Training loop
+
+  # after reseting hard code 10 steps to the front
+  # from that position reset every 100 setps, it should learn to find the door
+  # make sure that we are in the same room -> use same seed
   dqn.train()
   T, done = 0, True
   y = torch.Tensor(1, 16)
@@ -130,20 +160,44 @@ else:
     if done:
       state, done = env.reset(), False
 
+
+
+      states_list = []
+      objects_list = []
+
+      for c in range(4):
+        next_state, rgb, _, done = env.step(np.random.randint(0, 3, size=4))
+        objects, depthmap = prepare_input.prepare_input(next_state[0], depth_model, OD)
+        state = cv2.resize(depthmap, dsize=(84, 84), interpolation=cv2.INTER_CUBIC)
+
+        states_list.append(state)
+        objects_list.append(objects)
+
+
+      states_list = np.asarray(states_list)
+      objects_list = np.asarray(objects_list)
+      objects_list = np.concatenate([objects_list[0], objects_list[1],objects_list[2],objects_list[3]], axis=None)
+
+
+      state = torch.tensor(states_list, dtype=torch.float32).div_(255)
+
+      y = torch.Tensor(objects_list)
+      y = y.unsqueeze(0)
+
+
     if T % args.replay_frequency == 0:
       dqn.reset_noise()  # Draw a new set of noisy weights
 
     action = dqn.act(state, y)  # Choose an action greedily (with noisy weights)
-    next_state, rgb, reward, done = env.step(action)  # Step
+
+
+    act_vector = action_dict[action]
+
+
+    next_state, rgb, reward, done = env.step(act_vector)  # Step
     if args.reward_clip > 0:
       reward = max(min(reward, args.reward_clip), -args.reward_clip)  # Clip rewards
-    mem.append(state, action, y, reward, done)  # Append transition to memory
-
-    objects, depthmap = prepare_input.prepare_input(rgb, depth_model, OD)
-
-    state = torch.tensor(depthmap, dtype=torch.float32).div_(255)
-
-    y = torch.Tensor(objects)
+    mem.append(state, action, y,  reward, done)  # Append transition to memory
 
     # Train and test
     if T >= args.learn_start:
