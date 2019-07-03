@@ -74,7 +74,9 @@ def log(s):
 
 
 # Environment
-env = ObstacleTowerEnv(args.environment_filename, docker_training=args.docker_training, retro=False, timeout_wait=700)
+env = ObstacleTowerEnv(args.environment_filename, docker_training=args.docker_training, retro=False, realtime_mode=True, timeout_wait=700)
+env.seed(2)
+env.floor(2)
 #env = Env(args)
 env.train()
 action_space = env.action_space()
@@ -115,28 +117,37 @@ while T < args.evaluation_size:
   if done:
     state, done = env.reset(), False
 
-  val_mem.append(state, None, y, None, done)
+
 
   states_list = []
   objects_list = []
 
-  for c in range(4):
+  if done == False:
+
     random_action = np.random.randint(0, 8)
     next_state, rgb, _, done = env.step(action_dict[random_action])
     objects, depthmap = prepare_input.prepare_input(next_state[0], depth_model, OD)
     state = cv2.resize(depthmap, dsize=(84, 84), interpolation=cv2.INTER_CUBIC)
 
     states_list.append(state)
+    states_list.append(state)
+    states_list.append(state)
+    states_list.append(state)
+    objects_list.append(objects)
+    objects_list.append(objects)
+    objects_list.append(objects)
     objects_list.append(objects)
 
-  states_list = np.asarray(states_list)
-  objects_list = np.asarray(objects_list)
-  objects_list = np.concatenate([objects_list[0], objects_list[1], objects_list[2], objects_list[3]], axis=None)
+    states_list = np.asarray(states_list)
+    objects_list = np.asarray(objects_list)
+    objects_list = np.concatenate([objects_list[0], objects_list[1], objects_list[2], objects_list[3]], axis=None)
 
   state = torch.tensor(states_list, dtype=torch.float32).div_(255)
 
   y = torch.Tensor(objects_list)
   y = y.unsqueeze(0)
+
+  val_mem.append(state, None, y, None, done)
 
   #state = next_state
   T += 1
@@ -153,36 +164,52 @@ else:
   # after reseting hard code 10 steps to the front
   # from that position reset every 100 setps, it should learn to find the door
   # make sure that we are in the same room -> use same seed
+
+
+
+
   dqn.train()
   T, done = 0, True
   y = torch.Tensor(1, 16)
   for T in tqdm(range(args.T_max)):
     if done:
-      state, done = env.reset(), False
+      state, done = env.reset(), True
+      state = state[0][0]
+      objects, depthmap = prepare_input.prepare_input(state, depth_model, OD)
+      state = cv2.resize(depthmap, dsize=(84, 84), interpolation=cv2.INTER_CUBIC)
+      start_states = [state, state, state, state]
+      state = np.asarray(start_states)
+      state = torch.tensor(state, dtype=torch.float32).div_(255)
+
+    states_list = []
+    objects_list = []
+
+    if done == False:
 
 
+      objects, depthmap = prepare_input.prepare_input(state[0], depth_model, OD)
+      state_temp = cv2.resize(depthmap, dsize=(84, 84), interpolation=cv2.INTER_CUBIC)
 
-      states_list = []
-      objects_list = []
-
-      for c in range(4):
-        next_state, rgb, _, done = env.step(np.random.randint(0, 3, size=4))
-        objects, depthmap = prepare_input.prepare_input(next_state[0], depth_model, OD)
-        state = cv2.resize(depthmap, dsize=(84, 84), interpolation=cv2.INTER_CUBIC)
-
-        states_list.append(state)
-        objects_list.append(objects)
-
+      states_list.append(state_temp)
+      states_list.append(state_temp)
+      states_list.append(state_temp)
+      states_list.append(state_temp)
+      objects_list.append(objects)
+      objects_list.append(objects)
+      objects_list.append(objects)
+      objects_list.append(objects)
 
       states_list = np.asarray(states_list)
       objects_list = np.asarray(objects_list)
       objects_list = np.concatenate([objects_list[0], objects_list[1],objects_list[2],objects_list[3]], axis=None)
 
-
       state = torch.tensor(states_list, dtype=torch.float32).div_(255)
+
 
       y = torch.Tensor(objects_list)
       y = y.unsqueeze(0)
+
+    done = False
 
 
     if T % args.replay_frequency == 0:
@@ -190,9 +217,7 @@ else:
 
     action = dqn.act(state, y)  # Choose an action greedily (with noisy weights)
 
-
     act_vector = action_dict[action]
-
 
     next_state, rgb, reward, done = env.step(act_vector)  # Step
     if args.reward_clip > 0:
@@ -217,5 +242,6 @@ else:
         dqn.update_target_net()
 
     state = next_state
+    done = False
 
 env.close()

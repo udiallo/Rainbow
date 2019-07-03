@@ -6,6 +6,7 @@ import numpy as np
 from mlagents_envs import UnityEnvironment
 from gym import error, spaces
 import os
+import random
 
 
 class UnityGymException(error.Error):
@@ -158,6 +159,19 @@ class ObstacleTowerEnv(gym.Env):
         Returns: observation (object/list): the initial observation of the
             space.
         """
+
+        action_dict = {
+            # 1 : [0, 0, 0, 0], #nothing
+            0: [1, 0, 0, 0],  # forward
+            1: [0, 0, 0, 1],  # right
+            2: [0, 0, 0, 2],  # left
+            3: [1, 0, 1, 0],  # forward jump
+            4: [0, 0, 1, 1],  # right jump
+            5: [0, 0, 1, 2],  # left jump
+            6: [0, 1, 0, 0],  # camera cc
+            7: [0, 2, 0, 0],  # camera c
+        }
+
         if config is None:
             reset_params = {}
             if self.config is not None:
@@ -174,6 +188,14 @@ class ObstacleTowerEnv(gym.Env):
         n_agents = len(info.agents)
         self._check_agents(n_agents)
         self.game_over = False
+
+        way = [0,0,0,0,0,3,1,1,1,0,2,2,2,0,0,0,0,5,5,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,3,0,0,0,0,0,0,0,0,0,0,0]
+
+
+
+        for i in range(len(way)):
+            self.step(action_dict[way[i]])
+
 
         obs, reward, done, info = self._single_step(info)
         return obs, done
